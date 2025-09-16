@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G Shop Lanka - Reseller Hub</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Poppins for all text -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Supabase for database and auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Feather Icons for icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    
+    <style>
+        /* --- නව තැඹිලි Theme එක සහ මූලික සැකසුම් --- */
+        :root {
+            --bg-main: #f9fafb; /* ටිකක් සුදු පැහැති පසුබිමක් */
+            --primary-accent: #F97316; /* ප්‍රධාන තැඹිලි වර්ණය (Orange 500) */
+            --text-heading: #1f2937; /* මාතෘකා සඳහා තද අළු පැහැය */
+            --text-body: #4b5563; /* සාමාන්‍ය TEXT සඳහා අළු පැහැය */
+        }
+        html { scroll-behavior: smooth; }
+        body { 
+            font-family: 'Poppins', sans-serif; 
+            background-color: var(--bg-main); 
+            color: var(--text-body); 
+            /* opacity: 0; සහ transition ඉවත් කළා */
+            overflow: hidden; /* Loading වෙද්දි scroll වීම නවත්වන්න */
+        }
+        /* body.loaded class එක සම්පූර්ණයෙන්ම ඉවත් කළා */
+        .font-logo { 
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800; /* ලාංඡනය සඳහා තද අකුරු */
+            letter-spacing: 1px;
+        }
+        .view-fade-in { 
+            animation: fadeIn 0.6s ease-in-out; 
+        }
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(15px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+        ::-webkit-scrollbar { width: 8px; } 
+        ::-webkit-scrollbar-track { background: #e5e7eb; } 
+        ::-webkit-scrollbar-thumb { background: #fdba74; border-radius: 10px; } /* Scroll bar එකත් තැඹිලි පාටට */
+        .admin-tab-active { 
+            border-color: var(--primary-accent) !important; 
+            color: var(--primary-accent) !important; 
+            background-color: #fff7ed; /* තැඹිලි පාටට හුරු ලා පැහැයක් */
+        }
+
+        /* --- අලුත් Loading Splash Screen එක --- */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #F97316; /* තැඹිලි පසුබිම */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.8s ease-in-out; /* Fade out වීම සඳහා */
+        }
+        #splash-screen.fade-out {
+            opacity: 0;
+        }
+        .splash-content-wrapper {
+            text-align: center;
+            color: white;
+            transform: translateY(0);
+            opacity: 1;
+            transition: transform 0.6s ease, opacity 0.6s ease;
+        }
+        #splash-screen.fade-out .splash-content-wrapper {
+             transform: translateY(-20px);
+             opacity: 0;
+        }
+        .splash-shop-name {
+            font-size: 3rem;
+            font-weight: 800; /* Logo එකේ font weight එකට සමානයි */
+            margin: 0;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        .loading-bar-bg {
+            width: 300px;
+            height: 12px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        .loading-bar-fg {
+            width: 0%;
+            height: 100%;
+            background-color: white;
+            border-radius: 6px;
+            position: relative;
+            transition: width 0.1s linear;
+        }
+        .loading-bar-fg::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+            animation: shimmer 2s infinite linear;
+        }
+        .percentage-text {
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(250%); }
+        }
+        
+        /* Autocomplete සහ Star Rating සඳහා වූ Styles (වෙනසක් නැත) */
+        .autocomplete-container { position: relative; }
+        .autocomplete-results { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #d1d5db; border-radius: 0.5rem; z-index: 50; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); margin-top: 4px; }
+        .autocomplete-item { padding: 0.75rem 1rem; cursor: pointer; }
+        .autocomplete-item:hover { background-color: #f3f4f6; }
+        .star-rating input { display: none; }
+        .star-rating label { font-size: 2rem; color: #d1d5db; cursor: pointer; transition: color 0.2s; }
+        .star-rating input:checked ~ label, .star-rating label:hover, .star-rating label:hover ~ label { color: #f59e0b; }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Loading Splash Screen -->
+    <div id="splash-screen">
+        <div class="splash-content-wrapper">
+            <h1 class="splash-shop-name">G Shop Lanka</h1>
+            <div class="loading-bar-bg">
+                <div id="loading-bar-fg" class="loading-bar-fg"></div>
+            </div>
+            <p id="percentage-text" class="percentage-text">0%</p>
+        </div>
+    </div>
+
+    <!-- Header (ශීර්ෂකය) -->
+    <header class="bg-orange-500 shadow-lg sticky top-0 z-40 border-b border-orange-600">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+            <div class="flex items-center cursor-pointer" onclick="goHome()">
+                <h1 class="font-logo text-3xl md:text-4xl text-white tracking-wider" style="filter: drop-shadow(0 2px 3px rgba(0,0,0,0.2));">G Shop Lanka</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="tel:0740918507" class="flex items-center gap-2 text-orange-100 hover:text-white transition-colors"><i data-feather="phone-call" class="w-5 h-5"></i><span class="font-semibold text-sm hidden sm:inline">0740918507</span></a>
+                <button id="auth-btn" class="font-semibold py-2 px-5 rounded-full transition-all duration-200 shadow-sm flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-300 bg-white text-orange-600 border border-orange-200 hover:bg-orange-50 text-sm">Login</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content (ප්‍රධාන අන්තර්ගතය) -->
+    <main id="main-content" class="container mx-auto p-4 sm:p-6 lg:p-8 min-h-[75vh]">
+        <div id="home-view" class="view hidden">
+            <div id="banner-container" class="mb-12"></div>
+            <section class="mb-12 bg-white rounded-xl shadow-md border border-slate-200/80 p-4">
+                <div class="flex flex-col md:flex-row flex-wrap justify-around items-center gap-4">
+                    <div class="flex items-center gap-3 p-2 flex-grow min-w-[250px] justify-center"><div class="bg-orange-100 text-orange-600 rounded-full p-3"><i data-feather="truck" class="w-6 h-6"></i></div><div><h3 class="font-semibold text-slate-800">Cash On Delivery</h3><p class="text-sm text-slate-500">Pay securely upon arrival.</p></div></div>
+                    <div class="flex items-center gap-3 p-2 flex-grow min-w-[250px] justify-center"><div class="bg-orange-100 text-orange-600 rounded-full p-3"><i data-feather="headphones" class="w-6 h-6"></i></div><div><h3 class="font-semibold text-slate-800">24/7 Customer Service</h3><p class="text-sm text-slate-500">We're here to help anytime.</p></div></div>
+                    <div class="flex items-center gap-3 p-2 flex-grow min-w-[250px] justify-center"><div class="bg-orange-100 text-orange-600 rounded-full p-3"><i data-feather="award" class="w-6 h-6"></i></div><div><h3 class="font-semibold text-slate-800">Premium Quality</h3><p class="text-sm text-slate-500">Guaranteed best-in-class.</p></div></div>
+                </div>
+            </section>
+            <div class="flex flex-col sm:flex-row gap-4 mb-8 bg-white/60 p-4 rounded-xl shadow-sm border border-slate-200/80">
+                <div class="relative flex-grow"><i data-feather="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i><input type="text" id="search-bar" placeholder="Search for products..." class="w-full p-3 pl-12 bg-white border-2 border-slate-200 rounded-full focus:ring-4 focus:ring-orange-200 focus:border-orange-400 transition-all shadow-sm placeholder:text-slate-400"></div>
+                <div class="flex gap-4">
+                    <div class="relative flex-grow min-w-[150px]"><i data-feather="tag" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 z-10"></i><select id="collection-filter" class="w-full relative appearance-none p-3 pl-12 bg-white border-2 border-slate-200 rounded-full focus:ring-4 focus:ring-orange-200 focus:border-orange-400 transition-all shadow-sm cursor-pointer"></select><i data-feather="chevron-down" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i></div>
+                    <button id="all-items-btn" class="bg-orange-500 text-white font-semibold py-3 px-6 rounded-full hover:bg-orange-600 transition-colors shadow-sm">All Items</button>
+                </div>
+            </div>
+            <div id="collections-container" class="space-y-12"></div>
+            <p id="no-results-message" class="text-center text-slate-500 py-16 text-lg hidden">Sorry, no products found.</p>
+        </div>
+        <div id="product-detail-view" class="view hidden"></div>
+        <div id="reseller-dashboard-view" class="view hidden"></div>
+        <div id="admin-view" class="view hidden"></div>
+    </main>
+    
+    <!-- Footer (පාදකය) -->
+    <footer class="bg-slate-800 text-slate-300 mt-16"><div class="container mx-auto p-8 text-center"><h3 class="font-logo text-2xl font-bold text-white mb-4">G Shop Lanka</h3><p class="mb-4">The Reseller Platform.</p><p class="text-sm text-slate-400">&copy; 2025 G Shop Lanka. All Rights Reserved.</p></div></footer>
+    
+    <!-- Modals (විවෘත වන කවුළු) -->
+    <div id="login-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300 z-50 opacity-0 pointer-events-none"><div id="login-modal-content" class="bg-white p-8 rounded-2xl shadow-2xl w-11/12 max-w-sm transform transition-all scale-95"><div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-slate-800">Login</h2><button id="close-login-modal-btn" class="text-slate-400 hover:text-slate-600 transition-colors"><i data-feather="x"></i></button></div><form id="login-form" class="space-y-4"><p id="login-error" class="text-red-500 text-sm text-center hidden"></p>
+        <input type="text" id="login-userid" placeholder="Enter your User ID" class="w-full p-3 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all placeholder:text-slate-400" required>
+        <input type="password" id="login-password" placeholder="Enter your password" class="w-full p-3 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all placeholder:text-slate-400" required>
+        <button type="submit" class="w-full bg-orange-500 text-white font-bold py-3 rounded-full hover:bg-orange-600 transition flex items-center justify-center gap-2">Login</button>
+    </form></div></div>
+    <div id="withdraw-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300 z-50 opacity-0 pointer-events-none"><div class="bg-white p-8 rounded-2xl shadow-2xl w-11/12 max-w-md transform transition-all scale-95"><div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-slate-800">Request Withdrawal</h2><button id="close-withdraw-modal-btn" class="text-slate-400 hover:text-slate-600 transition-colors"><i data-feather="x"></i></button></div><form id="withdraw-form" class="space-y-4"><p class="text-slate-600">Your available balance is <strong id="withdraw-balance" class="text-green-600">Rs. 0.00</strong>. Enter your bank details to request withdrawal.</p><input type="text" name="account-holder" placeholder="Account Holder Name" class="w-full p-3 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all" required><input type="text" name="account-number" placeholder="Account Number" class="w-full p-3 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all" required><select name="bank-name" class="w-full p-3 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all appearance-none" required></select><button type="submit" class="w-full bg-green-500 text-white font-bold py-3 rounded-full hover:bg-green-600 transition flex items-center justify-center gap-2">Submit Request</button></form></div></div>
+    <div id="video-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300 z-[60] opacity-0 pointer-events-none"><div id="video-modal-content" class="relative w-11/12 max-w-4xl transform transition-all scale-95"><button id="close-video-modal-btn" class="absolute -top-4 -right-4 bg-white rounded-full p-2 text-slate-600 hover:text-red-500 hover:scale-110 transition-all shadow-lg"><i data-feather="x" class="w-6 h-6"></i></button><div id="video-player-container" class="aspect-video bg-black rounded-lg overflow-hidden shadow-2xl"></div></div></div>
+
+    <div id="toast-notification" class="fixed top-5 right-5 py-3 px-6 rounded-lg text-white shadow-xl translate-x-[120%] transition-transform duration-500 ease-in-out z-[100] flex items-center gap-3"><span id="toast-icon"></span><span id="toast-message"></span></div>
+
+    <script type="module">
+        // --- CONFIGURATION ---
+        const SUPABASE_URL = 'https://mijwgsgsjixpvmlmmspv.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pandnc2dzaml4cHZtbG1tc3B2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4NDc5MzQsImV4cCI6MjA3MzQyMzkzNH0.Vt0CkaVMYfHwqTaiISNJfMyAkHHyhEDgKsGfZlzStYk';
+        const WHATSAPP_NUMBER = '94728020200';
+        const DELIVERY_FEE = 400.00;
+        const COMMISSION_RATE = 0.25;
+        const MIN_WITHDRAWAL_AMOUNT = 200.00;
+        const SRI_LANKAN_BANKS = ["Bank of Ceylon", "People's Bank", "Commercial Bank of Ceylon", "Hatton National Bank (HNB)", "Sampath Bank", "Seylan Bank", "Nations Trust Bank (NTB)", "DFCC Bank", "National Development Bank (NDB)", "Pan Asia Banking Corporation", "Amana Bank"];
+
+        // --- SUPABASE CLIENT ---
+        const { createClient } = supabase;
+        const dbClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- GLOBAL STATE ---
+        let allProducts = [], allCollections = [], allBanners = [], allReviews = [];
+        let currentUser = null, currentResellerProfile = null, isAdmin = false, selectedProduct = null;
+
+        // --- DOM ELEMENTS ---
+        const body = document.body;
+        const splashScreen = document.getElementById('splash-screen');
+        const views = { home: document.getElementById('home-view'), productDetail: document.getElementById('product-detail-view'), reseller: document.getElementById('reseller-dashboard-view'), admin: document.getElementById('admin-view') };
+        const loginModal = document.getElementById('login-modal');
+        const withdrawModal = document.getElementById('withdraw-modal');
+        const videoModal = document.getElementById('video-modal');
+        const authBtn = document.getElementById('auth-btn');
+        const toast = document.getElementById('toast-notification');
+        const searchBar = document.getElementById('search-bar'), collectionFilter = document.getElementById('collection-filter');
+        
+        // --- LOADING ANIMATION SCRIPT ---
+        const startLoadingAnimation = () => {
+            const percentageText = document.getElementById('percentage-text');
+            const loadingBar = document.getElementById('loading-bar-fg');
+            
+            let percentage = 0;
+            const duration = 2500; // තත්පර 2.5 ක animation එකක්
+            const intervalTime = duration / 100;
+
+            const interval = setInterval(() => {
+                if (percentage < 100) {
+                    percentage++;
+                    percentageText.textContent = percentage + '%';
+                    loadingBar.style.width = percentage + '%';
+                } else {
+                    clearInterval(interval);
+                    splashScreen.classList.add('fade-out');
+                    setTimeout(() => {
+                        splashScreen.style.display = 'none';
+                        body.style.overflow = 'auto'; // Scroll නැවත සක්‍රීය කරන්න
+                        initializeApp(); // App එකේ ඉතුරු ටික load කරන්න
+                    }, 800); // CSS transition එකේ කාලයට සමානයි
+                }
+            }, intervalTime);
+        };
+
+
+        // --- UTILITY FUNCTIONS ---
+        const switchView = (viewName) => { Object.values(views).forEach(v => v.classList.add('hidden')); if(views[viewName]) { views[viewName].classList.remove('hidden', 'view-fade-in'); void views[viewName].offsetWidth; views[viewName].classList.add('view-fade-in'); } window.scrollTo(0, 0); };
+        const showToast = (message, isError = false) => { toast.querySelector('#toast-message').textContent = message; const iconContainer = toast.querySelector('#toast-icon'); toast.style.backgroundColor = isError ? '#ef4444' : '#22c55e'; iconContainer.innerHTML = isError ? `<i data-feather="alert-triangle" class="w-5 h-5"></i>` : `<i data-feather="check-circle" class="w-5 h-5"></i>`; feather.replace(); toast.classList.remove('translate-x-[120%]'); toast.classList.add('translate-x-0'); setTimeout(() => { toast.classList.remove('translate-x-0'); toast.classList.add('translate-x-[120%]'); }, 3000); };
+        const openModal = (modal) => { modal.classList.remove('opacity-0', 'pointer-events-none'); modal.querySelector('div:first-child').classList.remove('scale-95'); };
+        const closeModal = (modal) => { modal.classList.add('opacity-0', 'pointer-events-none'); modal.querySelector('div:first-child').classList.add('scale-95'); };
+        const setLoadingState = (button, isLoading, originalContent) => { if (isLoading) { button.disabled = true; button.innerHTML = `<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>`; } else { button.disabled = false; button.innerHTML = originalContent; } feather.replace(); };
+
+        // --- AUTHENTICATION & NAVIGATION ---
+        const handleLogout = async () => { await dbClient.auth.signOut(); };
+
+        const updateUIForAuthState = () => {
+            if (isAdmin) {
+                authBtn.textContent = 'Logout';
+                authBtn.onclick = handleLogout; 
+                authBtn.classList.remove('bg-white', 'text-orange-600', 'hover:bg-orange-50');
+                authBtn.classList.add('bg-red-500', 'text-white', 'hover:bg-red-600');
+                showAdminDashboard();
+            } else if (currentUser && currentResellerProfile) {
+                authBtn.textContent = 'Logout';
+                authBtn.onclick = handleLogout;
+                authBtn.classList.remove('bg-white', 'text-orange-600', 'hover:bg-orange-50');
+                authBtn.classList.add('bg-red-500', 'text-white', 'hover:bg-red-600');
+                renderResellerDashboard();
+            } else {
+                authBtn.textContent = 'Login';
+                authBtn.onclick = () => openModal(loginModal);
+                authBtn.classList.add('bg-white', 'text-orange-600', 'hover:bg-orange-50');
+                authBtn.classList.remove('bg-red-500', 'text-white', 'hover:bg-red-600');
+                renderHomePageContent();
+            }
+        };
+
+        window.goHome = () => {
+            if (isAdmin) showAdminDashboard();
+            else if (currentUser && currentResellerProfile) renderResellerDashboard();
+            else renderHomePageContent();
+        };
+        
+        // --- SHOP VIEW FUNCTIONS (FOR PUBLIC) ---
+        const renderHomePageContent = () => {
+             if(allProducts.length === 0 && !isAdmin) { views.home.innerHTML = `<p class="text-center text-slate-500 py-16 text-lg">No products available. Please check back later.</p>`; switchView('home'); return; } 
+             renderBanners(); renderCollectionFilter(); filterAndRenderProducts(); switchView('home'); feather.replace();
+        }
+        
+        const renderBanners = () => { const bannerContainer = document.getElementById('banner-container'); if (allBanners.length === 0) { bannerContainer.innerHTML = ''; return; } const latestBanner = allBanners[0]; bannerContainer.innerHTML = `<a href="${latestBanner.link_url || '#'}" class="block bg-slate-200 rounded-2xl shadow-lg overflow-hidden group"><div class="relative"><img src="${latestBanner.image_url}" class="w-full h-48 sm:h-64 md:h-80 object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.parentElement.style.display='none'"><div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div><div class="absolute bottom-0 left-0 p-6 md:p-8 text-white"><h2 class="text-3xl md:text-5xl font-extrabold mb-2">${latestBanner.title || ''}</h2><p class="text-lg md:text-xl text-slate-200">${latestBanner.subtitle || ''}</p></div></div></a>`; }
+        const renderCollectionFilter = () => { collectionFilter.innerHTML = `<option value="all">All Collections</option>` + allCollections.map(c => `<option value="${c.id}">${c.name}</option>`).join(''); }
+
+        const filterAndRenderProducts = () => { 
+            const collectionsContainer = document.getElementById('collections-container'); if(!collectionsContainer) return;
+            const searchTerm = searchBar.value.toLowerCase().trim(); const selectedCollectionId = collectionFilter.value; 
+            let filteredProducts = allProducts; 
+            if (selectedCollectionId !== 'all') { filteredProducts = filteredProducts.filter(p => p.collection_id == selectedCollectionId); } 
+            if (searchTerm) { filteredProducts = filteredProducts.filter(p => p.name.toLowerCase().includes(searchTerm)); } 
+            const collectionsToDisplay = allCollections.map(collection => ({...collection, products: filteredProducts.filter(p => p.collection_id === collection.id)})).filter(c => c.products.length > 0); 
+            if (selectedCollectionId === 'all') { const uncategorized = filteredProducts.filter(p => !p.collection_id || !allCollections.some(c => c.id === p.collection_id)); if (uncategorized.length > 0) { collectionsToDisplay.push({ id: 'uncategorized', name: 'Other Products', products: uncategorized }); } } 
+            collectionsContainer.innerHTML = collectionsToDisplay.map(collection => `<section class="collection-section"><h2 class="collection-title text-3xl font-bold text-slate-800 mb-6">${collection.name}</h2><div class="product-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 md:gap-8">${collection.products.map(p => getProductCardHTML(p)).join('')}</div></section>`).join(''); 
+            document.getElementById('no-results-message').style.display = filteredProducts.length === 0 ? 'block' : 'none'; 
+            feather.replace(); 
+        }
+        
+        const getProductCardHTML = (p) => { const displayImage = (p.image_urls && p.image_urls.length > 0) ? p.image_urls[0] : 'https://placehold.co/400x400/e2e8f0/475569?text=Image+Not+Found'; return `<div class="product-card bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-100/80 transform transition-all duration-400 ease-in-out hover:shadow-2xl hover:-translate-y-2 group cursor-pointer" onclick="showProductDetail(${p.id})"><div class="overflow-hidden h-56 bg-slate-100 relative"><img src="${displayImage}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onerror="this.src='https://placehold.co/400x400/e2e8f0/475569?text=Image+Not+Found'">${p.video_url ? '<div class="absolute top-3 right-3 bg-white/80 backdrop-blur-sm rounded-full p-2 text-orange-500 shadow-md"><i data-feather="play-circle" class="w-5 h-5"></i></div>' : ''}</div><div class="p-4"><h3 class="font-semibold text-lg truncate text-slate-800">${p.name}</h3><div class="flex justify-between items-center mt-2"><p class="text-slate-800 font-bold text-xl">Rs. ${p.price.toFixed(2)}</p><button class="font-semibold py-1.5 px-4 rounded-full transition-all duration-200 shadow-sm flex items-center justify-center gap-2 focus:outline-none bg-slate-100 text-slate-600 group-hover:bg-orange-500 group-hover:text-white text-xs">View</button></div></div></div>`; }
+
+        // --- PRODUCT DETAIL VIEW FUNCTIONS ---
+        const getStarRatingHTML = (rating, isLarge = false) => { let stars = ''; for (let i = 1; i <= 5; i++) { stars += `<span class="${i <= rating ? 'text-amber-400' : 'text-slate-300'} ${isLarge ? 'text-2xl' : 'text-xl'}">★</span>`; } return `<div class="flex">${stars}</div>`; };
+        const getOrderFormHTML = () => `<div class="view-fade-in"><button id="back-to-details" class="text-sm text-orange-500 mb-4 hover:underline flex items-center gap-1"><i data-feather="chevron-left" class="w-4 h-4"></i> Back to details</button><h2 class="text-3xl font-bold text-slate-800 mb-1">Shipping Details</h2><p class="text-slate-500 mb-6">Enter your info to complete the order.</p><form id="order-form" class="space-y-4 max-w-lg"><div class="relative flex items-center"><span class="absolute left-4 text-slate-400"><i data-feather="user"></i></span><input required name="full-name" type="text" placeholder="Full Name" class="w-full p-3 pl-12 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all placeholder:text-slate-400"></div><div class="relative flex items-center"><span class="absolute left-4 text-slate-400"><i data-feather="map-pin"></i></span><input required name="address" type="text" placeholder="Address (Line 1)" class="w-full p-3 pl-12 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all placeholder:text-slate-400"></div><div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div class="relative flex items-center"><span class="absolute left-4 text-slate-400"><i data-feather="map"></i></span><input required name="city" type="text" placeholder="City" class="w-full p-3 pl-12 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all placeholder:text-slate-400"></div><div class="relative flex items-center"><span class="absolute left-4 text-slate-400"><i data-feather="compass"></i></span><input required name="district" type="text" placeholder="District" class="w-full p-3 pl-12 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all placeholder:text-slate-400"></div></div><div class="relative flex items-center"><span class="absolute left-4 text-slate-400"><i data-feather="phone"></i></span><input required name="contact" type="tel" placeholder="Contact Number" class="w-full p-3 pl-12 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all placeholder:text-slate-400"></div><div class="p-4 bg-orange-50 rounded-lg text-orange-800 text-center border border-orange-200">Delivery Fee: <span class="font-semibold">Rs. ${DELIVERY_FEE.toFixed(2)}</span></div><div class="flex items-center justify-center gap-2 text-sm text-slate-500 mt-2 mb-4"><i data-feather="truck" class="w-4 h-4"></i><span>Estimated Delivery: 1 - 5 Business Days</span></div><button type="submit" class="w-full bg-gradient-to-br from-orange-500 to-amber-500 text-white border-b-4 border-orange-700 active:border-b-2 active:translate-y-1 shadow-orange-500/30 hover:shadow-orange-500/50 font-bold py-3 px-7 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center gap-3 focus:outline-none focus:ring-4 focus:ring-orange-300/50 !text-base"><i data-feather="send"></i> Confirm & Send on WhatsApp</button></form></div>`;
+        const handleAddReview = async (e) => { e.preventDefault(); const form = e.target, btn = form.querySelector('button[type="submit"]'), fd = new FormData(form); const originalContent = btn.innerHTML; setLoadingState(btn, true, ''); const newReview = { product_id: selectedProduct.id, reviewer_name: fd.get('reviewer-name'), rating: parseInt(fd.get('rating')), comment: fd.get('comment') }; const { data, error } = await dbClient.from('reviews').insert([newReview]).select(); if (error) { showToast('Error submitting review.', true); console.error(error); } else { showToast('Thank you for your review!'); allReviews.push(data[0]); showProductDetail(selectedProduct.id); } setLoadingState(btn, false, originalContent); };
+        const getVideoEmbedHTML = (url) => { let vId; try { if(url.includes("youtu")) vId=new URL(url).searchParams.get("v")||new URL(url).pathname.slice(1); if(vId) return `<iframe class="w-full h-full" src="https://www.youtube.com/embed/${vId}?autoplay=1&rel=0" frameborder="0" allowfullscreen></iframe>`; if(url.includes("vimeo")) vId=new URL(url).pathname.slice(1); if(vId) return `<iframe class="w-full h-full" src="https://player.vimeo.com/video/${vId}?autoplay=1" frameborder="0" allowfullscreen></iframe>`; } catch(e) { console.error("Invalid video URL", e); return null; } return null; };
+        const showVideoPlayer = (url) => { if (!url) return; const embedHtml = getVideoEmbedHTML(url); if (!embedHtml) { showToast("Invalid video URL.", true); return; } document.getElementById('video-player-container').innerHTML = embedHtml; openModal(videoModal); }; 
+        const closeVideoPlayer = () => { document.getElementById('video-player-container').innerHTML = ''; closeModal(videoModal); };
+        window.showProductDetail = (productId) => { selectedProduct = allProducts.find(p => p.id === productId); if (!selectedProduct) return; const productReviews = allReviews.filter(r => r.product_id === productId); const averageRating = productReviews.length > 0 ? (productReviews.reduce((acc, r) => acc + r.rating, 0) / productReviews.length).toFixed(1) : 0; const productImages = (selectedProduct.image_urls && selectedProduct.image_urls.length > 0) ? selectedProduct.image_urls : []; views.productDetail.innerHTML = `<div class="bg-white p-4 sm:p-8 rounded-2xl shadow-xl max-w-5xl mx-auto"><button onclick="goHome()" class="font-semibold py-2 px-5 rounded-full transition-all duration-200 shadow-sm flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-400 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-sm mb-6"><i data-feather="arrow-left" class="w-4 h-4"></i> Back</button><div id="product-content" class="view-fade-in"><div class="grid md:grid-cols-2 gap-8 lg:gap-12"><div><div class="rounded-lg shadow-lg overflow-hidden aspect-square mb-4 bg-slate-100"><img id="main-product-image" src="${productImages[0] || 'https://placehold.co/600x600/e2e8f0/475569?text=Image+Not+Found'}" alt="${selectedProduct.name}" class="w-full h-full object-cover transition-opacity duration-300"></div><div class="flex flex-wrap gap-3 justify-center"><div id="thumbnail-container" class="flex flex-wrap gap-3">${productImages.map((imgUrl, index) => `<img src="${imgUrl}" alt="Thumbnail ${index+1}" class="w-20 h-20 object-cover rounded-md cursor-pointer border-2 transition-all ${index === 0 ? 'border-orange-500' : 'border-transparent hover:border-slate-300'}">`).join('')}</div>${selectedProduct.video_url ? `<div id="video-thumb-btn" class="w-20 h-20 bg-slate-800 rounded-md cursor-pointer border-2 border-transparent hover:border-orange-500 flex flex-col items-center justify-center text-white transition-all"><i data-feather="video" class="w-8 h-8"></i><span class="text-xs mt-1 font-semibold">Video</span></div>` : ''}</div></div><div class="flex flex-col"><h2 class="text-3xl md:text-4xl font-bold text-slate-800 mb-2">${selectedProduct.name}</h2><p class="text-3xl font-semibold text-slate-800 mb-4">Rs. ${selectedProduct.price.toFixed(2)}</p><p class="text-slate-600 mb-6 flex-grow leading-relaxed">${selectedProduct.description || ''}</p><div class="bg-slate-50 p-5 rounded-lg border border-slate-200"><div class="mb-5"><h3 class="font-semibold text-slate-700 mb-3 text-md">Select Color:</h3><div id="detail-colors" class="flex flex-wrap gap-3"></div></div><div class="mb-6"><h3 class="font-semibold text-slate-700 mb-3 text-md">Quantity:</h3><div class="flex items-center gap-3 bg-white rounded-full p-1 w-fit shadow-inner border border-slate-200"><button id="qty-minus" class="bg-slate-200 hover:bg-slate-300 rounded-full h-9 w-9 text-2xl font-bold transition-colors flex items-center justify-center">-</button><span id="qty-value" class="text-xl font-bold w-12 text-center text-slate-800">1</span><button id="qty-plus" class="bg-slate-200 hover:bg-slate-300 rounded-full h-9 w-9 text-2xl font-bold transition-colors flex items-center justify-center">+</button></div></div><button id="place-order-btn" class="w-full bg-gradient-to-br from-orange-500 to-amber-500 text-white border-b-4 border-orange-700 active:border-b-2 active:translate-y-1 shadow-orange-500/30 hover:shadow-orange-500/50 font-bold py-3 px-7 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center gap-3"><i data-feather="shopping-cart"></i> Place Order</button></div></div></div></div><div id="order-form-container" class="hidden"></div><div class="mt-12 border-t pt-8"><h3 class="text-2xl font-bold text-slate-800 mb-6">Customer Reviews (${productReviews.length})</h3>${productReviews.length > 0 ? `<div class="flex items-center gap-2 mb-6">${getStarRatingHTML(averageRating, true)}<span class="font-bold text-slate-700">${averageRating} out of 5</span></div>` : ''}<div id="reviews-list" class="space-y-6 mb-8">${productReviews.map(r => `<div class="border-b pb-4"><div class="flex items-center mb-2">${getStarRatingHTML(r.rating)}</div><p class="text-slate-600 mb-2">“${r.comment}”</p><p class="text-sm font-semibold text-slate-800">— ${r.reviewer_name}</p></div>`).join('') || '<p class="text-slate-500">No reviews yet. Be the first!</p>'}</div><h4 class="text-xl font-bold text-slate-800 mb-4">Leave a Review</h4><form id="add-review-form" class="space-y-4 max-w-lg"><input required name="reviewer-name" placeholder="Your Name" class="w-full p-3 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all placeholder:text-slate-400"><div class="star-rating flex items-center flex-row-reverse justify-end gap-1">${[5,4,3,2,1].map(s => `<input type="radio" id="star${s}" name="rating" value="${s}" required><label for="star${s}">★</label>`).join('')}</div><textarea required name="comment" placeholder="Your review..." class="w-full p-3 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all placeholder:text-slate-400" rows="4"></textarea><button type="submit" class="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-full transition-colors shadow-sm inline-flex items-center gap-2"><i data-feather="send"></i> Submit Review</button></form></div></div>`; feather.replace(); const detailView = views.productDetail; let quantity = 1; const validColors = Array.isArray(selectedProduct.colors) ? selectedProduct.colors : []; let selectedColor = validColors.length > 0 ? validColors[0] : 'Default'; const mainImage = detailView.querySelector('#main-product-image'); const thumbnails = detailView.querySelectorAll('#thumbnail-container img'); thumbnails.forEach((thumb, index) => { thumb.onclick = () => { mainImage.style.opacity = '0'; setTimeout(() => { mainImage.src = productImages[index]; mainImage.style.opacity = '1'; }, 200); thumbnails.forEach(t => t.classList.remove('border-orange-500')); thumb.classList.add('border-orange-500'); }; }); const videoThumbBtn = detailView.querySelector('#video-thumb-btn'); if(videoThumbBtn) videoThumbBtn.onclick = () => showVideoPlayer(selectedProduct.video_url); const colorsEl = detailView.querySelector('#detail-colors'); if (validColors.length === 0) { colorsEl.innerHTML = `<p class="text-sm text-slate-500">No color options.</p>`; } else { colorsEl.innerHTML = validColors.map(c => `<div data-color="${c}" title="${c}" class="h-9 w-9 rounded-full border-2 border-slate-200 transition-all duration-200 flex items-center justify-center cursor-pointer hover:border-orange-400" style="background-color: ${c.toLowerCase().replace(/\s/g, '')};"></div>`).join(''); } const swatches = colorsEl.querySelectorAll('[data-color]'); const selectSwatch = (el) => { swatches.forEach(s => s.classList.remove('ring-2', 'ring-offset-2', 'ring-orange-500')); if(el) { el.classList.add('ring-2', 'ring-offset-2', 'ring-orange-500'); selectedColor = el.dataset.color; } }; swatches.forEach(swatch => swatch.onclick = () => selectSwatch(swatch)); if (swatches.length > 0) selectSwatch(swatches[0]); const qtyVal = detailView.querySelector('#qty-value'); detailView.querySelector('#qty-plus').onclick = () => { qtyVal.textContent = ++quantity; }; detailView.querySelector('#qty-minus').onclick = () => { if (quantity > 1) qtyVal.textContent = --quantity; }; detailView.querySelector('#place-order-btn').onclick = () => { detailView.querySelector('#product-content').classList.add('hidden'); const formContainer = detailView.querySelector('#order-form-container'); formContainer.innerHTML = getOrderFormHTML(); feather.replace(); formContainer.classList.remove('hidden'); formContainer.querySelector('#back-to-details').onclick = () => { detailView.querySelector('#product-content').classList.remove('hidden'); formContainer.classList.add('hidden'); }; formContainer.querySelector('#order-form').onsubmit = (e) => { e.preventDefault(); const formData = new FormData(e.target); const fullName = formData.get('full-name'), address = `${formData.get('address')}, ${formData.get('city')}, ${formData.get('district')}`, contact = formData.get('contact'); const total = (selectedProduct.price * quantity) + DELIVERY_FEE; const message = `*✨ New Order from G Shop Lanka ✨*\n\n*Product:* ${selectedProduct.name}\n*Color:* ${selectedColor}\n*Quantity:* ${quantity}\n*Total:* *Rs. ${total.toFixed(2)}* (incl. delivery)\n\n--- Customer Details ---\n*Name:* ${fullName}\n*Address:* ${address}\n*Contact:* ${contact}`; window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank'); showToast('Order details sent to WhatsApp!'); goHome(); }; }; detailView.querySelector('#add-review-form').onsubmit = handleAddReview; switchView('productDetail'); };
+
+        // --- RESELLER DASHBOARD ---
+        const renderResellerDashboard = async () => {
+            if (!currentResellerProfile) { showToast("Could not load reseller profile.", true); return; }
+            views.reseller.innerHTML = `<div class="text-center mb-8"><h1 class="text-3xl font-bold text-slate-800">Welcome, ${currentResellerProfile.name}!</h1><p class="text-slate-500">Your User ID: <strong>${currentResellerProfile.username}</strong></p></div><div id="reseller-stats" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"></div><div class="grid grid-cols-1 lg:grid-cols-2 gap-8"><div class="bg-white p-6 rounded-2xl shadow-lg border"><h2 class="text-2xl font-bold text-slate-800 mb-4">My Order History</h2><div id="order-history-container" class="max-h-[500px] overflow-y-auto pr-2"></div></div><div class="bg-white p-6 rounded-2xl shadow-lg border"><h2 class="text-2xl font-bold text-slate-800 mb-4">My Withdrawal History</h2><div id="withdrawal-history-container" class="max-h-[500px] overflow-y-auto pr-2"></div></div></div><div class="mt-8 bg-white p-6 rounded-2xl shadow-lg border"><h2 class="text-2xl font-bold text-slate-800 mb-4">Add New Order</h2><form id="new-order-form" class="space-y-4"></form></div>`;
+            const { data: orders, error: ordersError } = await dbClient.from('reseller_orders').select('*').eq('reseller_id', currentUser.id).order('created_at', { ascending: false });
+            if(ordersError) { showToast("Error fetching orders.", true); return; }
+            const { data: withdrawals, error: withdrawalsError } = await dbClient.from('reseller_withdrawals').select('*').eq('reseller_id', currentUser.id).order('created_at', { ascending: false });
+            if(withdrawalsError) { showToast("Error fetching withdrawals.", true); return; }
+            
+            const totalEarnings = orders.reduce((sum, order) => sum + (order.status === 'Delivered' ? order.profit_amount : 0), 0);
+            const totalWithdrawnAndPending = (withdrawals || []).reduce((sum, w) => sum + w.amount, 0);
+            const currentBalance = totalEarnings - totalWithdrawnAndPending;
+
+            document.getElementById('reseller-stats').innerHTML = `<div class="bg-white p-6 rounded-xl shadow-md border flex items-center gap-4"><div class="bg-green-100 text-green-600 p-3 rounded-full"><i data-feather="dollar-sign"></i></div><div><p class="text-slate-500">Total Paid Earnings</p><p class="text-2xl font-bold text-slate-800">Rs. ${totalEarnings.toFixed(2)}</p></div></div><div class="bg-white p-6 rounded-xl shadow-md border flex items-center gap-4"><div class="bg-orange-100 text-orange-600 p-3 rounded-full"><i data-feather="briefcase"></i></div><div><p class="text-slate-500">Available to Withdraw</p><p class="text-2xl font-bold text-slate-800">Rs. ${currentBalance.toFixed(2)}</p></div></div><div class="bg-white p-6 rounded-xl shadow-md border flex items-center gap-4"><div class="bg-yellow-100 text-yellow-600 p-3 rounded-full"><i data-feather="shopping-cart"></i></div><div><p class="text-slate-500">Total Orders</p><p class="text-2xl font-bold text-slate-800">${orders.length}</p></div></div>`;
+            
+            const hasPendingWithdrawal = (withdrawals || []).some(w => w.status === 'Pending');
+            
+            if (currentBalance >= MIN_WITHDRAWAL_AMOUNT && !hasPendingWithdrawal) {
+                document.getElementById('reseller-stats').children[1].innerHTML += `<button id="open-withdraw-btn" class="mt-2 text-sm bg-green-500 text-white font-semibold py-1 px-3 rounded-full hover:bg-green-600">Request Withdrawal</button>`;
+                document.getElementById('open-withdraw-btn').onclick = () => { document.getElementById('withdraw-balance').textContent = `Rs. ${currentBalance.toFixed(2)}`; openModal(withdrawModal); };
+            } else if (hasPendingWithdrawal) {
+                 document.getElementById('reseller-stats').children[1].innerHTML += `<p class="mt-2 text-sm text-yellow-600 font-semibold">Withdrawal request is processing...</p>`;
+            }
+
+            renderNewOrderForm();
+            renderOrderHistory(orders);
+            renderWithdrawalHistory(withdrawals);
+            switchView('reseller');
+            feather.replace();
+        };
+
+        const renderNewOrderForm = () => { const form = document.getElementById('new-order-form'); form.innerHTML = `<input type="text" name="customerName" placeholder="Customer Name" class="w-full p-3 bg-slate-100 border rounded-lg focus:ring-2 focus:ring-orange-400" required><input type="text" name="customerAddress" placeholder="Customer Address" class="w-full p-3 bg-slate-100 border rounded-lg focus:ring-2 focus:ring-orange-400" required><div class="grid grid-cols-2 gap-4"><input type="text" name="customerCity" placeholder="City" class="w-full p-3 bg-slate-100 border rounded-lg focus:ring-2 focus:ring-orange-400" required><input type="text" name="customerDistrict" placeholder="District" class="w-full p-3 bg-slate-100 border rounded-lg focus:ring-2 focus:ring-orange-400" required></div><input type="tel" name="customerMobile" placeholder="Mobile Number" class="w-full p-3 bg-slate-100 border rounded-lg focus:ring-2 focus:ring-orange-400" required><hr class="my-4"><div class="autocomplete-container"><input type="text" id="product-search-input" placeholder="Type to search for a product..." class="w-full p-3 bg-slate-100 border rounded-lg focus:ring-2 focus:ring-orange-400" required><div id="product-search-results" class="autocomplete-results hidden"></div></div><input type="hidden" name="productId"><input type="text" name="productName" placeholder="Product Name" class="w-full p-3 bg-slate-200 border rounded-lg" readonly><input type="number" name="productPrice" placeholder="Price" class="w-full p-3 bg-slate-200 border rounded-lg" readonly><input type="text" name="productColor" placeholder="Color" class="w-full p-3 bg-slate-100 border rounded-lg focus:ring-2 focus:ring-orange-400" required><hr class="my-4"><div class="bg-orange-50 p-4 rounded-lg text-center"><p class="text-slate-600">Your Profit (25%)</p><p id="profit-display" class="text-2xl font-bold text-green-600">Rs. 0.00</p></div><button type="submit" class="w-full bg-orange-500 text-white font-bold py-3 rounded-full hover:bg-orange-600 flex items-center justify-center gap-2"><i data-feather="plus"></i> Add Order & Send Details</button>`; feather.replace(); attachOrderFormListeners(form); };
+        
+        const attachOrderFormListeners = (form) => {
+            const productSearchInput = form.querySelector('#product-search-input'), resultsContainer = form.querySelector('#product-search-results');
+            productSearchInput.addEventListener('input', () => { const query = productSearchInput.value.toLowerCase(); if (query.length < 2) { resultsContainer.classList.add('hidden'); return; } const filtered = allProducts.filter(p => p.name.toLowerCase().includes(query)); resultsContainer.innerHTML = filtered.map(p => `<div class="autocomplete-item" data-id="${p.id}">${p.name} - Rs. ${p.price.toFixed(2)}</div>`).join(''); resultsContainer.classList.remove('hidden'); });
+            resultsContainer.addEventListener('click', (e) => { if (e.target.classList.contains('autocomplete-item')) { const productId = e.target.dataset.id, selectedProduct = allProducts.find(p => p.id == productId); if (selectedProduct) { form.querySelector('[name="productId"]').value = selectedProduct.id; form.querySelector('[name="productName"]').value = selectedProduct.name; form.querySelector('[name="productPrice"]').value = selectedProduct.price.toFixed(2); productSearchInput.value = selectedProduct.name; resultsContainer.classList.add('hidden'); document.getElementById('profit-display').textContent = `Rs. ${(selectedProduct.price * COMMISSION_RATE).toFixed(2)}`; } } });
+            document.addEventListener('click', (e) => { if (!form.querySelector('.autocomplete-container').contains(e.target)) { resultsContainer.classList.add('hidden'); } });
+            form.onsubmit = async (e) => { e.preventDefault(); const btn = e.target.querySelector('button[type="submit"]'), btnOriginal = btn.innerHTML; setLoadingState(btn, true); const fd = new FormData(e.target), price = parseFloat(fd.get('productPrice')); if (!price || isNaN(price)) { showToast("Please select a valid product first.", true); setLoadingState(btn, false, btnOriginal); return; } const profit = price * COMMISSION_RATE; const orderData = { reseller_id: currentUser.id, product_id: parseInt(fd.get('productId')), product_name: fd.get('productName'), product_price: price, profit_amount: profit, customer_name: fd.get('customerName'), customer_address: fd.get('customerAddress'), customer_city: fd.get('customerCity'), customer_district: fd.get('customerDistrict'), customer_phone: fd.get('customerMobile'), color: fd.get('productColor'), status: 'Pending' }; const { error } = await dbClient.from('reseller_orders').insert(orderData); if(error) { showToast("Error saving order. Please try again.", true); console.error("Order save error:", error); } else { showToast("Order added successfully!"); const message = `*✨ New Reseller Order from ${currentResellerProfile.shop_name} ✨*\n\n--- Customer Details ---\n*Name:* ${orderData.customer_name}\n*Address:* ${orderData.customer_address}, ${orderData.customer_city}, ${orderData.customer_district}\n*Contact:* ${orderData.customer_phone}\n\n--- Order Details ---\n*Product:* ${orderData.product_name}\n*Color:* ${orderData.color}\n*Price:* *Rs. ${orderData.product_price.toFixed(2)}*\n\n*Reseller Profit: Rs. ${orderData.profit_amount.toFixed(2)}*`; window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank'); renderResellerDashboard(); } setLoadingState(btn, false, btnOriginal); };
+        };
+
+        const renderOrderHistory = (orders) => { const container = document.getElementById('order-history-container'); if (orders.length === 0) { container.innerHTML = `<p class="text-center text-slate-500 py-8">You haven't placed any orders yet.</p>`; return; } const statusStyles = { 'Pending': 'bg-yellow-100 text-yellow-800', 'Shipped': 'bg-blue-100 text-blue-800', 'Delivered': 'bg-green-100 text-green-800', 'Cancelled': 'bg-red-100 text-red-800', }; container.innerHTML = `<div class="space-y-3">${orders.map(order => `<div class="bg-slate-50 p-4 rounded-lg border"><div class="flex justify-between items-start"><div><p class="font-bold text-slate-800">${order.product_name}</p><p class="text-sm text-slate-600">To: ${order.customer_name} (${order.customer_city})</p><p class="text-xs text-slate-400">Date: ${new Date(order.created_at).toLocaleDateString()}</p></div><div class="text-right"><p class="font-bold text-green-600">+ Rs. ${order.profit_amount.toFixed(2)}</p><span class="text-xs font-semibold px-2 py-1 rounded-full ${statusStyles[order.status] || 'bg-gray-100 text-gray-800'}">${order.status}</span></div></div></div>`).join('')}</div>`; };
+        const renderWithdrawalHistory = (withdrawals) => { const container = document.getElementById('withdrawal-history-container'); if (withdrawals.length === 0) { container.innerHTML = `<p class="text-center text-slate-500 py-8">No withdrawal history.</p>`; return; } const statusStyles = { 'Pending': 'bg-yellow-100 text-yellow-800', 'Paid': 'bg-green-100 text-green-800', 'Rejected': 'bg-red-100 text-red-800', }; container.innerHTML = `<div class="space-y-3">${withdrawals.map(w => `<div class="bg-slate-50 p-4 rounded-lg border"><div class="flex justify-between items-start"><div><p class="font-bold text-slate-800">Withdrawal Request</p><p class="text-sm text-slate-600">Amount: <span class="font-semibold">Rs. ${w.amount.toFixed(2)}</span></p><p class="text-xs text-slate-400">Date: ${new Date(w.created_at).toLocaleDateString()}</p></div><div class="text-right"><span class="text-xs font-semibold px-2 py-1 rounded-full ${statusStyles[w.status] || 'bg-gray-100 text-gray-800'}">${w.status}</span></div></div></div>`).join('')}</div>`;};
+
+        const handleWithdrawalRequest = async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]'), btnOriginal = btn.innerHTML; setLoadingState(btn, true);
+            const { data: balance, error: rpcError } = await dbClient.rpc('get_reseller_balance');
+            if (rpcError || balance <= 0) { showToast("Could not verify balance or balance is zero.", true); setLoadingState(btn, false, btnOriginal); return; }
+            const fd = new FormData(e.target);
+            const withdrawalData = { reseller_id: currentUser.id, amount: balance, bank_name: fd.get('bank-name'), account_holder_name: fd.get('account-holder'), account_number: fd.get('account-number'), status: 'Pending' };
+            const { error } = await dbClient.from('reseller_withdrawals').insert(withdrawalData);
+            if (error) { showToast("Error submitting request. Please try again.", true); console.error("Withdrawal error:", error); } 
+            else { showToast("Withdrawal request sent successfully!"); closeModal(withdrawModal); renderResellerDashboard(); }
+            setLoadingState(btn, false, btnOriginal);
+        };
+        
+        // --- ADMIN DASHBOARD ---
+        const showAdminDashboard = async () => {
+             views.admin.innerHTML = `<div class="bg-white p-4 sm:p-6 rounded-2xl shadow-xl max-w-6xl mx-auto"><div class="flex justify-between items-center mb-6 border-b pb-4"><h2 class="text-3xl font-bold text-slate-800">Admin Dashboard</h2></div><div class="flex border-b border-slate-200 mb-6 -mx-4 sm:-mx-6 px-4 sm:px-6 overflow-x-auto"><button id="tab-resellers" class="admin-tab-btn py-3 px-5 font-semibold border-b-2 admin-tab-active">Resellers</button><button id="tab-shop" class="admin-tab-btn py-3 px-5 font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800">Shop Management</button></div><div id="admin-content"></div></div>`;
+            const tabs = views.admin.querySelectorAll('.admin-tab-btn');
+            const showTab = (tabId) => { tabs.forEach(t => t.classList.remove('admin-tab-active')); views.admin.querySelector(`#${tabId}`).classList.add('admin-tab-active'); renderAdminTabContent(tabId.replace('tab-', '')); };
+            tabs.forEach(t => t.onclick = () => showTab(t.id)); showTab('tab-resellers'); switchView('admin');
+        };
+
+        const renderAdminTabContent = async (tabName) => {
+            const contentContainer = document.getElementById('admin-content');
+            contentContainer.innerHTML = `<div class="text-center py-16"><div class="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div></div>`;
+            if (tabName === 'resellers') {
+                contentContainer.innerHTML = `<div class="flex border-b mb-4"><button id="subtab-manage" class="py-2 px-4 font-medium text-sm text-orange-600 border-b-2 border-orange-600">Manage Resellers</button><button id="subtab-orders" class="py-2 px-4 font-medium text-sm text-slate-500 border-b-2 border-transparent">All Orders</button><button id="subtab-withdrawals" class="py-2 px-4 font-medium text-sm text-slate-500 border-b-2 border-transparent">Withdrawals</button></div><div id="admin-subtab-content"></div>`;
+                const subtabs = contentContainer.querySelectorAll('[id^="subtab-"]');
+                const renderSubTab = (subTabId) => { subtabs.forEach(s => {s.classList.remove('text-orange-600', 'border-orange-600'); s.classList.add('text-slate-500', 'border-transparent')}); contentContainer.querySelector(`#${subTabId}`).classList.add('text-orange-600', 'border-orange-600'); renderResellerSubTab(subTabId.replace('subtab-', '')); }
+                subtabs.forEach(st => st.onclick = () => renderSubTab(st.id)); renderSubTab('subtab-manage');
+            } else if (tabName === 'shop') {
+                contentContainer.innerHTML = `<div class="flex border-b mb-4"><button id="subtab-products" class="py-2 px-4 font-medium text-sm text-orange-600 border-b-2 border-orange-600">Products</button><button id="subtab-collections" class="py-2 px-4 font-medium text-sm text-slate-500 border-b-2 border-transparent">Collections</button><button id="subtab-banners" class="py-2 px-4 font-medium text-sm text-slate-500 border-b-2 border-transparent">Banners</button></div><div id="admin-subtab-content"></div>`;
+                const subtabs = contentContainer.querySelectorAll('[id^="subtab-"]');
+                 const renderSubTab = (subTabId) => { subtabs.forEach(s => {s.classList.remove('text-orange-600', 'border-orange-600'); s.classList.add('text-slate-500', 'border-transparent')}); contentContainer.querySelector(`#${subTabId}`).classList.add('text-orange-600', 'border-orange-600'); renderShopSubTab(subTabId.replace('subtab-', '')); }
+                subtabs.forEach(st => st.onclick = () => renderSubTab(st.id)); renderSubTab('subtab-products');
+            }
+        };
+        
+        const renderResellerSubTab = async (subTabName) => {
+            const subContent = document.getElementById('admin-subtab-content');
+            subContent.innerHTML = `<div class="text-center py-16"><div class="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div></div>`;
+            if (subTabName === 'manage') {
+                const {data: resellers, error} = await dbClient.from('resellers').select('*');
+                if(error) { showToast('Could not fetch resellers.', true); subContent.innerHTML = ''; return; }
+                subContent.innerHTML = `<div class="grid md:grid-cols-2 gap-8"><div><h3 class="text-xl font-semibold text-slate-700 mb-4">Create New Reseller Account</h3><form id="create-reseller-form" class="space-y-4">
+                    <input class="w-full p-3 bg-slate-100 rounded-lg" type="text" name="name" placeholder="Full Name" required>
+                    <input class="w-full p-3 bg-slate-100 rounded-lg" type="text" name="shop_name" placeholder="Shop Name" required>
+                    <input class="w-full p-3 bg-slate-100 rounded-lg" type="text" name="username" placeholder="User ID (Username)" required>
+                    <input class="w-full p-3 bg-slate-100 rounded-lg" type="email" name="email" placeholder="Email" required>
+                    <input class="w-full p-3 bg-slate-100 rounded-lg" type="password" name="password" placeholder="Password" required>
+                    <button type="submit" class="w-full bg-orange-500 text-white font-bold py-3 rounded-full hover:bg-orange-600">Create Account</button>
+                    </form></div><div><h3 class="text-xl font-semibold text-slate-700 mb-4">Existing Resellers</h3><div class="space-y-2 max-h-96 overflow-y-auto pr-2">${(resellers || []).map(r => `<div class="bg-slate-50 p-3 rounded-lg flex justify-between items-center"><div><p class="font-semibold">${r.name} (${r.username})</p><p class="text-sm text-slate-500">${r.email}</p></div><button onclick="handleDelete('${r.user_id}')" class="text-red-500 p-1"><i data-feather="trash-2" class="w-4 h-4"></i></button></div>`).join('')}</div></div></div>`;
+                const resellerForm = document.getElementById('create-reseller-form'); if(resellerForm) resellerForm.onsubmit = handleCreateReseller;
+            } else if (subTabName === 'orders') {
+                 const {data: orders, error} = await dbClient.from('reseller_orders_view').select('*');
+                 if(error) { showToast('Could not fetch orders. Are you an admin?', true); subContent.innerHTML = `<p class="text-center text-red-500">Failed to load orders. Ensure you are logged in as an admin.</p>`; return; }
+                 subContent.innerHTML = `<h3 class="text-xl font-semibold text-slate-700 mb-4">All Reseller Orders (${(orders||[]).length})</h3><div class="space-y-3 max-h-[32rem] overflow-y-auto pr-2">${(orders||[]).map(o => `<div class="bg-slate-50 p-4 rounded-lg"><p class="font-bold">${o.product_name} <span class="text-slate-500 font-normal">for</span> ${o.customer_name}</p><p class="text-sm">Sold by: <span class="font-semibold">${o.reseller_name}</span> on ${new Date(o.created_at).toLocaleDateString()}</p><div class="flex items-center justify-between mt-2"><p class="text-sm font-bold text-green-600">Profit: Rs. ${o.profit_amount.toFixed(2)}</p><select data-order-id="${o.id}" class="order-status-select bg-white border rounded-md p-1 text-sm"><option value="Pending" ${o.status === 'Pending' ? 'selected' : ''}>Pending</option><option value="Shipped" ${o.status === 'Shipped' ? 'selected' : ''}>Shipped</option><option value="Delivered" ${o.status === 'Delivered' ? 'selected' : ''}>Delivered</option><option value="Cancelled" ${o.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option></select></div></div>`).join('')}</div>`;
+                 document.querySelectorAll('.order-status-select').forEach(sel => sel.onchange = handleStatusUpdate);
+            } else if (subTabName === 'withdrawals') {
+                const {data: requests, error} = await dbClient.from('reseller_withdrawals_view').select('*');
+                if(error) { showToast('Could not fetch withdrawals. Are you an admin?', true); subContent.innerHTML = `<p class="text-center text-red-500">Failed to load withdrawals. Ensure you are logged in as an admin.</p>`; return; }
+                const pending = requests.filter(r => r.status === 'Pending');
+                const completed = requests.filter(r => r.status !== 'Pending');
+                 subContent.innerHTML = `
+                    <h3 class="text-xl font-semibold text-slate-700 mb-4">Pending Withdrawal Requests (${pending.length})</h3>
+                    <div class="space-y-4 mb-8">${pending.map(r => `<div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200"><p class="font-bold text-lg">${r.reseller_name} <span class="text-slate-600 font-normal">requests</span> Rs. ${r.amount.toFixed(2)}</p><div class="text-sm mt-2"><p><strong>Bank:</strong> ${r.bank_name}</p><p><strong>A/C Name:</strong> ${r.account_holder_name}</p><p><strong>A/C Number:</strong> ${r.account_number}</p></div><div class="mt-3 flex gap-2"><button onclick="handleUpdateWithdrawalStatus(${r.id}, 'Paid')" class="bg-green-500 text-white font-semibold py-1 px-3 rounded-full text-sm hover:bg-green-600">Approve</button><button onclick="handleUpdateWithdrawalStatus(${r.id}, 'Rejected')" class="bg-red-500 text-white font-semibold py-1 px-3 rounded-full text-sm hover:bg-red-600">Reject</button></div></div>`).join('') || `<p class="text-center text-slate-500 py-8">No pending requests.</p>`}</div>
+                    <h3 class="text-xl font-semibold text-slate-700 mb-4">Completed Requests</h3>
+                    <div class="space-y-3 max-h-80 overflow-y-auto pr-2">${completed.map(r => `<div class="bg-slate-50 p-4 rounded-lg"><p class="font-bold">${r.reseller_name}</p><p>Rs. ${r.amount.toFixed(2)} - <span class="${r.status === 'Paid' ? 'text-green-600' : 'text-red-600'}">${r.status}</span></p></div>`).join('') || `<p class="text-center text-slate-500 py-8">No completed requests.</p>`}</div>
+                 `;
+            }
+            feather.replace();
+        };
+
+        const renderShopSubTab = (subTabName) => {
+             const subContent = document.getElementById('admin-subtab-content');
+             const commonInput = "w-full p-3 bg-slate-100 border-2 border-transparent rounded-lg focus:bg-white focus:ring-2 focus:ring-orange-400 transition-all placeholder:text-slate-400";
+             const commonBtn = "w-full sm:w-auto bg-orange-500 text-white font-bold py-3 px-6 rounded-full hover:bg-orange-600 transition flex items-center justify-center gap-2";
+             switch(subTabName) {
+                case 'products': 
+                    subContent.innerHTML = `<div class="grid md:grid-cols-2 gap-8"><div><h3 class="text-2xl font-semibold text-slate-700 mb-4">Add New Product</h3><form id="addShopForm" class="space-y-4"><input required name="name" placeholder="Product Name" class="${commonInput}"><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><input required type="number" step="0.01" name="price" placeholder="Price (Rs.)" class="${commonInput}"><input required name="colors" placeholder="Colors (Red,Blue,Green)" class="${commonInput}"></div><select name="collection_id" class="${commonInput}"><option value="">Select Collection</option>${allCollections.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select><textarea required name="image_urls" placeholder="Image URLs (comma-separated)" class="${commonInput}" rows="2"></textarea><input type="url" name="video_url" placeholder="Video URL (YouTube/Vimeo)" class="${commonInput}"><textarea required name="description" placeholder="Product Description" class="${commonInput}" rows="3"></textarea><button type="submit" class="${commonBtn}"><i data-feather="plus-circle"></i> Add Product</button></form></div><div><h3 class="text-2xl font-semibold text-slate-700 mb-4">Existing Products</h3><div class="space-y-3 max-h-[28rem] overflow-y-auto pr-2">${allProducts.map(p => `<div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg"><span>${p.name}</span><button onclick="handleDelete('products', ${p.id})" class="text-red-500 hover:text-red-700 p-1"><i data-feather="trash-2" class="w-4 h-4"></i></button></div>`).join('') || `<p class="text-slate-500">No products yet.</p>`}</div></div></div>`;
+                    attachShopFormListeners('products');
+                    break;
+                case 'collections': 
+                    subContent.innerHTML = `<div class="grid md:grid-cols-2 gap-8"><div><h3 class="text-2xl font-semibold text-slate-700 mb-4">Add New Collection</h3><form id="addShopForm" class="space-y-4"><input required name="name" placeholder="Collection Name" class="${commonInput}"><button type="submit" class="${commonBtn}"><i data-feather="plus-circle"></i> Add Collection</button></form></div><div><h3 class="text-2xl font-semibold text-slate-700 mb-4">Existing Collections</h3><div class="space-y-3">${allCollections.map(c => `<div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg"><span>${c.name}</span><button onclick="handleDelete('collections', ${c.id})" class="text-red-500 hover:text-red-700 p-1"><i data-feather="trash-2" class="w-4 h-4"></i></button></div>`).join('') || `<p class="text-slate-500">No collections yet.</p>`}</div></div></div>`;
+                    attachShopFormListeners('collections');
+                    break;
+                case 'banners': 
+                    subContent.innerHTML = `<div class="grid md:grid-cols-2 gap-8"><div><h3 class="text-2xl font-semibold text-slate-700 mb-4">Add New Banner</h3><form id="addShopForm" class="space-y-4"><input required name="image_url" placeholder="Banner Image URL" class="${commonInput}"><input name="title" placeholder="Title (Optional)" class="${commonInput}"><input name="subtitle" placeholder="Subtitle (Optional)" class="${commonInput}"><input name="link_url" placeholder="Link URL (Optional)" class="${commonInput}"><button type="submit" class="${commonBtn}"><i data-feather="plus-circle"></i> Add Banner</button></form></div><div><h3 class="text-2xl font-semibold text-slate-700 mb-4">Existing Banners</h3><div class="space-y-3">${allBanners.map(b => `<div class="flex justify-between items-center bg-slate-50 p-3 rounded-lg"><span>${b.title || 'Banner'}</span><button onclick="handleDelete('banners', ${b.id})" class="text-red-500 hover:text-red-700 p-1"><i data-feather="trash-2" class="w-4 h-4"></i></button></div>`).join('') || `<p class="text-slate-500">No banners yet.</p>`}</div></div></div>`;
+                    attachShopFormListeners('banners');
+                    break;
+             }
+             feather.replace();
+        }
+
+        const attachShopFormListeners = (id) => { const form = document.getElementById('addShopForm'); if(form) { form.onsubmit = async (e) => { e.preventDefault(); const btn = form.querySelector('button[type="submit"]'), btnTxt = btn.innerHTML; setLoadingState(btn, true, ''); const fd = new FormData(form); const data = Object.fromEntries(fd.entries()); if (id === 'products') { data.price=parseFloat(data.price); data.colors=data.colors.split(',').map(c=>c.trim()).filter(Boolean); data.image_urls=data.image_urls.split(',').map(u=>u.trim()).filter(Boolean); if(!data.collection_id) data.collection_id=null; } const {error} = await dbClient.from(id).insert([data]); if(error) { showToast(`Error adding item.`, true); console.error(error); } else { showToast(`Item added successfully!`); await initializeApp(true); renderShopSubTab(id); } setLoadingState(btn, false, btnTxt); }; } };
+        
+        window.handleDelete = async (id) => {
+            if (confirm('Are you sure you want to delete this user completely? This action cannot be undone.')) {
+                const { error } = await dbClient.rpc('delete_reseller_fully', { user_id_to_delete: id });
+                if (error) { showToast(`Error deleting user: ${error.message}`, true); console.error("Deletion RPC Error:", error); } 
+                else { showToast('User deleted successfully.'); await initializeApp(true); renderResellerSubTab('manage'); }
+            }
+        };
+
+        const handleCreateReseller = async (e) => {
+            e.preventDefault();
+            const form = e.target; const btn = form.querySelector('button[type="submit"]'); const btnOriginalHTML = btn.innerHTML; setLoadingState(btn, true, '');
+            const fd = new FormData(form); const email = fd.get('email'); const password = fd.get('password'); const name = fd.get('name'); const shop_name = fd.get('shop_name'); const username = fd.get('username');
+            const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+            if (!emailRegex.test(email)) { showToast("Please enter a valid email address.", true); setLoadingState(btn, false, btnOriginalHTML); return; }
+            try {
+                const { data: usernameExists, error: checkError } = await dbClient.rpc('check_username_exists', { p_username: username });
+                if (checkError) { throw new Error(`Error checking username: ${checkError.message}`); }
+                if (usernameExists) { throw new Error(`User ID "${username}" is already taken.`); }
+                const { data: authData, error: authError } = await dbClient.auth.signUp({ email: email, password: password, options: { data: { name: name, shop_name: shop_name, username: username } } });
+                if (authError) { throw new Error(`Error creating user: ${authError.message}`); }
+                if (!authData.user) { throw new Error("User was not created. Please check Supabase logs."); }
+                showToast("Reseller account created successfully!"); form.reset(); await initializeApp(true); renderResellerSubTab('manage');
+            } catch (error) { showToast(error.message, true); console.error("Create Reseller Error:", error); } 
+            finally { setLoadingState(btn, false, btnOriginalHTML); }
+        };
+
+        const handleStatusUpdate = async (e) => { const orderId = e.target.dataset.orderId, newStatus = e.target.value; const {error} = await dbClient.from('reseller_orders').update({status: newStatus}).eq('id', orderId); if(error) showToast("Failed to update status", true); else showToast("Order status updated!"); };
+        
+        window.handleUpdateWithdrawalStatus = async (reqId, newStatus) => {
+            const { error } = await dbClient.from('reseller_withdrawals').update({ status: newStatus }).eq('id', reqId);
+            if(error) { showToast("Failed to update status", true); console.error(error); }
+            else { showToast(`Withdrawal marked as ${newStatus}!`); renderResellerSubTab('withdrawals'); }
+        };
+
+        // --- INITIALIZATION ---
+        const initializeApp = async (isRefresh = false) => {
+            const promises = [ dbClient.from('products').select('*').order('created_at', { ascending: false }), dbClient.from('collections').select('*'), dbClient.from('banners').select('*').order('created_at', { ascending: false }), dbClient.from('reviews').select('*') ];
+            const [ {data:pData, error:pE}, {data:cData, error:cE}, {data:bData, error:bE}, {data:rData, error:rE} ] = await Promise.all(promises);
+            if(pE || cE || bE || rE) { showToast("Error loading shop data.", true); } 
+            else { allProducts = pData || []; allCollections = cData || []; allBanners = bData || []; allReviews = rData || []; }
+            if(!isRefresh) {
+                dbClient.auth.onAuthStateChange(async (_event, session) => {
+                    currentUser = session ? session.user : null;
+                    isAdmin = false;
+                    currentResellerProfile = null;
+                    if (currentUser) {
+                        const { data: adminProfile } = await dbClient.from('admins').select('user_id').eq('user_id', currentUser.id).single();
+                        if(adminProfile) { isAdmin = true; } 
+                        else {
+                            const { data: resellerProfile, error } = await dbClient.from('resellers').select('*').eq('user_id', currentUser.id).single();
+                            if (error && error.code !== 'PGRST116') { console.error("Error fetching reseller profile:", error); await handleLogout(); return; }
+                            if(resellerProfile) { currentResellerProfile = resellerProfile; } 
+                            else { showToast("Invalid account. Please contact support.", true); await handleLogout(); return; }
+                        }
+                    }
+                    updateUIForAuthState();
+                });
+            }
+            // All icons render once after data is loaded
+            feather.replace();
+        };
+        
+        // --- EVENT LISTENERS ---
+        searchBar.addEventListener('input', filterAndRenderProducts);
+        collectionFilter.addEventListener('change', filterAndRenderProducts);
+        document.getElementById('all-items-btn').onclick = () => { searchBar.value = ''; collectionFilter.value = 'all'; filterAndRenderProducts(); };
+        
+        document.getElementById('login-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            const btnOriginal = btn.innerHTML; setLoadingState(btn, true, '');
+            const loginErrorEl = document.getElementById('login-error');
+            loginErrorEl.classList.add('hidden');
+            const userId = document.getElementById('login-userid').value.trim();
+            const password = document.getElementById('login-password').value;
+            try {
+                const { data: userEmail, error: rpcError } = await dbClient.rpc('get_email_by_username', { p_username: userId });
+                if (rpcError || !userEmail) { throw new Error("Invalid User ID or Password."); }
+                const { error: loginError } = await dbClient.auth.signInWithPassword({ email: userEmail, password: password });
+                if (loginError) { throw new Error("Invalid User ID or Password."); }
+                closeModal(loginModal);
+            } catch (error) { loginErrorEl.textContent = error.message; loginErrorEl.classList.remove('hidden'); } 
+            finally { setLoadingState(btn, false, btnOriginal); }
+        };
+
+        document.getElementById('close-video-modal-btn').onclick = closeVideoPlayer; 
+        videoModal.onclick = (e) => { if(e.target === videoModal) closeVideoPlayer(); };
+        document.getElementById('close-login-modal-btn').onclick = () => closeModal(loginModal);
+        loginModal.onclick = (e) => { if(e.target === loginModal) closeModal(loginModal); };
+        const bankSelect = document.querySelector('#withdraw-form [name="bank-name"]');
+        bankSelect.innerHTML = `<option value="">Select Your Bank</option>` + SRI_LANKAN_BANKS.map(b => `<option value="${b}">${b}</option>`).join('');
+        document.getElementById('withdraw-form').onsubmit = handleWithdrawalRequest;
+        document.getElementById('close-withdraw-modal-btn').onclick = () => closeModal(withdrawModal);
+        withdrawModal.onclick = (e) => { if(e.target === withdrawModal) closeModal(withdrawModal); };
+
+        // --- START THE APP ---
+        document.addEventListener('DOMContentLoaded', startLoadingAnimation);
+    </script>
+</body>
+</html>
+
